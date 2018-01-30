@@ -22,7 +22,7 @@
 #
 #
 
-from commands import getoutput, getstatusoutput
+#from commands import getoutput, getstatusoutput
 from requests import get, post
 
 import sys, time, os
@@ -36,6 +36,10 @@ class Alumno:
 	__UA="User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.89 Safari/537.36"
 	__URL="http://siiauescolar.siiau.udg.mx"
 	
+	__headers = {
+		'User-Agent': __UA,
+	}
+	
 	__COOKIES=""
 	__majrp=""
 	
@@ -44,13 +48,13 @@ class Alumno:
 	nombre=""
 	items=[]
 	carreras=[]
-	valido=False
+	valido=True
 	
 	pidm=""
 	
 	def __getCarreras(self,url):
 		#cmd="curl -L -b cookies.txt -i -A '"+self.__UA+"' -X GET '"+self.__URL+""+url+"'"
-		r=get(self.__URL+""+url,cookies=self.__COOKIES)
+		r=get(self.__URL+""+url,headers=self.__headers,cookies=self.__COOKIES)
 		#out=getoutput(cmd)
 		out=r.text
 		if("OPTION" in out):
@@ -71,7 +75,7 @@ class Alumno:
 	
 	def __getLink(self):
 		#cmd="curl -L -b cookies.txt -i -A '"+self.__UA+"' -X GET siiauescolar.siiau.udg.mx/wus/gupmenug.menu_sistema?p_pidm_n="+str(self.pidm)
-		r=get("http://siiauescolar.siiau.udg.mx/wus/gupmenug.menu_sistema?p_pidm_n="+str(self.pidm),cookies=self.__COOKIES)
+		r=get("http://siiauescolar.siiau.udg.mx/wus/gupmenug.menu_sistema?p_pidm_n="+str(self.pidm),headers=self.__headers,cookies=self.__COOKIES)
 		out=r.text
 		#out=getoutput(cmd)
 		grado=""
@@ -101,17 +105,18 @@ class Alumno:
 		#print text
 	
 	def __getInfoBasica(self):
+		encuesta=False
 		for info in self.items:
 			if(info==None):
 				#cmd="curl -L -b cookies.txt -i -A '"+self.__UA+"' -X GET 'siiauescolar.siiau.udg.mx/wal/sgphist.ficha?pidmp="+self.pidm+"'"
-				r=get("http://siiauescolar.siiau.udg.mx/wal/sgphist.promedio?pidmp="+self.pidm,cookies=self.__COOKIES)
+				r=get("http://siiauescolar.siiau.udg.mx/wal/sgphist.promedio?pidmp="+self.pidm,headers=self.__headers,cookies=self.__COOKIES)
 			else:
 				#cmd="curl -L -b cookies.txt -i -A '"+self.__UA+"' -X GET 'siiauescolar.siiau.udg.mx/wal/sgphist.ficha?pidmp="+self.pidm+"&majrp="+info["carrera"]+"&cicloap="+info["inicio"]+"'"
-				r=get("http://siiauescolar.siiau.udg.mx/wal/sgphist.promedio?pidmp="+self.pidm+"&majrp="+info["carrera"]+"&cicloap="+info["inicio"],cookies=self.__COOKIES)
+				r=get("http://siiauescolar.siiau.udg.mx/wal/sgphist.promedio?pidmp="+self.pidm+"&majrp="+info["carrera"]+"&cicloap="+info["inicio"],headers=self.__headers,cookies=self.__COOKIES)
 			#out=getoutput(cmd)
 			out=r.text
 			if("Encuestas</b>" in out):
-				pass
+				encuesta=True
 				#print("Favor de contestar todas las encuestas para poder continuar")
 			else:
 				#print out
@@ -149,21 +154,23 @@ class Alumno:
 				
 				self.carreras.append({"carrera":carrera,"centro":centro,"sede":sede,"situacion":situacion,"promedio":promedio})
 		#print self.carreras
-		self.__getKardex()
+		if(not encuesta):
+			self.__getKardex()
 		
 	def __getKardex(self):
 		cont=0
+		encuesta=False
 		for info in self.items:
 			if(info == None):
-				r=get("http://siiauescolar.siiau.udg.mx/wal/sgphist.kardex?pidmp="+self.pidm+"&majrp="+self.__majrp,cookies=self.__COOKIES)
+				r=get("http://siiauescolar.siiau.udg.mx/wal/sgphist.kardex?pidmp="+self.pidm+"&majrp="+self.__majrp,headers=self.__headers,cookies=self.__COOKIES)
 			else:
 				#r=get("http://siiauescolar.siiau.udg.mx/wal/sgphist.kardex?pidmp=891060&majrp=INNI&cicloap=201420",cookies=self.__COOKIES)
-				r=get("http://siiauescolar.siiau.udg.mx/wal/sgphist.kardex?pidmp="+self.pidm+"&majrp="+info["carrera"]+"&cicloap="+info["inicio"],cookies=self.__COOKIES)
+				r=get("http://siiauescolar.siiau.udg.mx/wal/sgphist.kardex?pidmp="+self.pidm+"&majrp="+info["carrera"]+"&cicloap="+info["inicio"],headers=self.__headers,cookies=self.__COOKIES)
 			out=r.text
 			materias=[]
 			if("Encuestas</b>" in out):
-				print("Favor de contestar todas las encuestas para poder continuar")
-				pass
+				encuesta=True
+				#print("Favor de contestar todas las encuestas para poder continuar")
 			else:
 				'''
 				cab="Calendario "
@@ -220,25 +227,30 @@ class Alumno:
 					'''
 			self.carreras[cont]["kardex"]=materias
 			cont=cont+1
-		self.__getActuales()
+		if(not encuesta):
+			self.__getActuales()
 		#print self.carreras
 	
 	def __getActuales(self):
 		cont=0
+		encuesta=False
 		for info in self.items:
 			if(info == None):
-				r=get("http://siiauescolar.siiau.udg.mx/wal/sgpregi.horario?pidmp="+self.pidm+"&majrp="+self.__majrp,cookies=self.__COOKIES)
+				r=get("http://siiauescolar.siiau.udg.mx/wal/sgpregi.horario?pidmp="+self.pidm+"&majrp="+self.__majrp,headers=self.__headers,cookies=self.__COOKIES)
 			else:
 				#r=get("http://siiauescolar.siiau.udg.mx/wal/sgphist.kardex?pidmp=891060&majrp=INNI&cicloap=201420",cookies=self.__COOKIES)
-				r=get("http://siiauescolar.siiau.udg.mx/wal/sgpregi.horario?pidmp="+self.pidm+"&majrp="+info["carrera"],cookies=self.__COOKIES)
+				r=get("http://siiauescolar.siiau.udg.mx/wal/sgpregi.horario?pidmp="+self.pidm+"&majrp="+info["carrera"],headers=self.__headers,cookies=self.__COOKIES)
 			out=r.text
 			#print out
 			if("Encuestas</b>" in out):
-				pass
+				encuesta=True
 				#print("Favor de contestar todas las encuestas para poder continuar")
 			else:
-				if("<OPTION value=" in out):
-					cab="<OPTION value='"
+				#print out
+				cab='<SELECT NAME="pCiclo"'
+				if(cab in out):
+					out=out[out.find(cab)+len(cab):]
+					cab=" value='"
 					out=out[out.find(cab)+len(cab):]
 					ciclo=out[:out.find("'")]
 					params={"pidmP":self.pidm,"cicloP":ciclo,"encaP":"0"}
@@ -246,7 +258,8 @@ class Alumno:
 						params["majrP"]=info["carrera"]
 					else:
 						params["majrP"]=self.__majrp
-					r=post("http://siiauescolar.siiau.udg.mx/wal/sfpcoal.horario",data=params)
+					#print ciclo
+					r=post("http://siiauescolar.siiau.udg.mx/wal/sfpcoal.horario",headers=self.__headers,data=params)
 					out=r.text
 					out=out[out.find("FECHA FIN"):]
 					
@@ -276,41 +289,42 @@ class Alumno:
 				else:
 					self.carreras[cont]["materias_actuales"]=[]
 				cont=cont+1
-				self.valido=True
-							
-				'''
-				materias=[]
-				cab='<TR bgcolor="'
-				cab2="<FONT "
-				print "Si entre aqui"
-				print out
-				while(cab in out):
-					out=out[out.find(cab)+len(cab):]
-					
-					out=out[out.find(cab2)+len(cab2):]
-					out=out[out.find(">")+1:]
-					nrc=out[:out.find("</FONT>")]
-					
-					out=out[out.find(cab2)+len(cab2):]
-					out=out[out.find(">")+1:]
-					clave=out[:out.find("</FONT>")]
-					
-					out=out[out.find(cab2)+len(cab2):]
-					out=out[out.find(">")+1:]
-					materia=out[:out.find("</FONT>")]
-					
-					out=out[out.find(cab2)+len(cab2):]
-					out=out[out.find(">")+1:]
-					creditos=out[:out.find("</FONT>")]
-					
-					materias.append({"nrc":nrc,"clave":clave,"materia":materia,"creditos":creditos})
-					print nrc,clave,materia,creditos
-			self.carreras[cont]["materias_actuales"]=materias
-			print self.carreras[cont]["materias_actuales"]
-			cont=cont+1
+		if(not encuesta):
 			self.valido=True
-			#print self.carreras[cont]
-			#print "\n\n=====================================================\n\n"'''
+						
+			'''
+			materias=[]
+			cab='<TR bgcolor="'
+			cab2="<FONT "
+			print "Si entre aqui"
+			print out
+			while(cab in out):
+				out=out[out.find(cab)+len(cab):]
+				
+				out=out[out.find(cab2)+len(cab2):]
+				out=out[out.find(">")+1:]
+				nrc=out[:out.find("</FONT>")]
+				
+				out=out[out.find(cab2)+len(cab2):]
+				out=out[out.find(">")+1:]
+				clave=out[:out.find("</FONT>")]
+				
+				out=out[out.find(cab2)+len(cab2):]
+				out=out[out.find(">")+1:]
+				materia=out[:out.find("</FONT>")]
+				
+				out=out[out.find(cab2)+len(cab2):]
+				out=out[out.find(">")+1:]
+				creditos=out[:out.find("</FONT>")]
+				
+				materias.append({"nrc":nrc,"clave":clave,"materia":materia,"creditos":creditos})
+				print nrc,clave,materia,creditos
+		self.carreras[cont]["materias_actuales"]=materias
+		print self.carreras[cont]["materias_actuales"]
+		cont=cont+1
+		self.valido=True
+		#print self.carreras[cont]
+		#print "\n\n=====================================================\n\n"'''
 	
 	def __init__(self,codigo,nip):
 		#print "Creando el objeto"
@@ -320,13 +334,13 @@ class Alumno:
 		self.items=[]
 		self.carreras=[]
 		valido=False
-		print "ehrkjerjkergjergjk"
+		#print "ehrkjerjkergjergjk"
 		pidm=""
 		self.codigo=codigo
 		self.nip=nip
 		#cmd="curl -c cookies.txt -i -A '"+self.__UA+"' -X POST -d 'p_codigo_c="+str(codigo)+"&p_clave_c="+str(nip)+"' siiauescolar.siiau.udg.mx/wus/gupprincipal.valida_inicio"
 		params={"p_codigo_c":str(codigo),"p_clave_c":str(nip)}
-		r=post("http://siiauescolar.siiau.udg.mx/wus/gupprincipal.valida_inicio",data=params)
+		r=post("http://siiauescolar.siiau.udg.mx/wus/gupprincipal.valida_inicio",headers=self.__headers,data=params)
 		out=r.text
 		#out=getoutput(cmd)
 		if('class="error"' not in out):
@@ -337,12 +351,16 @@ class Alumno:
 			#print self.carreras
 			#getoutput("rm cookies.txt")
 		else:
-			pass
+			self.valido=False
 			#print "Los datos ingresados no son correctos"
 			
 class Profesor():
 	
 	__COOKIES=""
+	
+	__headers = {
+		'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.89 Safari/537.36',
+	}
 	
 	pidm=""
 	codigo=""
@@ -350,11 +368,11 @@ class Profesor():
 	nombre=""
 	materias=[]
 	
-	valido=False
+	valido=True
 	
 	def __getLink(self):
 		#cmd="curl -L -b cookies.txt -i -A '"+self.__UA+"' -X GET siiauescolar.siiau.udg.mx/wus/gupmenug.menu_sistema?p_pidm_n="+str(self.pidm)
-		r=get("http://siiauescolar.siiau.udg.mx/wus/gupmenug.menu_sistema?p_pidm_n="+str(self.pidm),cookies=self.__COOKIES)
+		r=get("http://siiauescolar.siiau.udg.mx/wus/gupmenug.menu_sistema?p_pidm_n="+str(self.pidm),headers=self.__headers,cookies=self.__COOKIES)
 		out=r.text
 		#out=getoutput(cmd)
 		grado=""
@@ -383,8 +401,8 @@ class Profesor():
 		#print text
 		
 	def __getInfoBasica(self):
-		print "aqui"
-		r=get("http://siiauescolar.siiau.udg.mx/wpr/sipprac.lista_prof?pidmp="+self.pidm,cookies=self.__COOKIES)
+		#print "aqui"
+		r=get("http://siiauescolar.siiau.udg.mx/wpr/sipprac.lista_prof?pidmp="+self.pidm,headers=self.__headers,cookies=self.__COOKIES)
 		out=r.text
 		
 		cab="<FONT "
@@ -410,7 +428,7 @@ class Profesor():
 			nombre=out[:out.find("</FONT>")]
 			
 			self.materias.append({"ciclo":ciclo,"nrc":nrc,"clave":clave,"nombre":nombre})
-		r=get("http://siiauescolar.siiau.udg.mx/wpr/silprac.asistencias_profesor",cookies=self.__COOKIES)
+		r=get("http://siiauescolar.siiau.udg.mx/wpr/silprac.asistencias_profesor",headers=self.__headers,cookies=self.__COOKIES)
 		out=r.text
 		cab='<TD style="font-family:arial;font-size:12;background-color:#ffffff;">'
 		cab2='<A HREF='
@@ -444,7 +462,7 @@ class Profesor():
 		self.nip=nip
 		#cmd="curl -c cookies.txt -i -A '"+self.__UA+"' -X POST -d 'p_codigo_c="+str(codigo)+"&p_clave_c="+str(nip)+"' siiauescolar.siiau.udg.mx/wus/gupprincipal.valida_inicio"
 		params={"p_codigo_c":str(codigo),"p_clave_c":str(nip)}
-		r=post("http://siiauescolar.siiau.udg.mx/wus/gupprincipal.valida_inicio",data=params)
+		r=post("http://siiauescolar.siiau.udg.mx/wus/gupprincipal.valida_inicio",headers=self.__headers,data=params)
 		out=r.text
 		#out=getoutput(cmd)
 		if('class="error"' not in out):
@@ -455,5 +473,5 @@ class Profesor():
 			#print self.carreras
 			#getoutput("rm cookies.txt")
 		else:
-			pass
+			self.valido=False
 			#print "Los datos ingresados no son correctos"
